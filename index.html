@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Классический QR-код</title>
+<style>
+  body {
+    margin: 0; padding: 20px;
+    background: #f0f2f5;
+    color: #333;
+    font-family: Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; box-sizing: border-box;
+  }
+  h1 { margin: 0 0 10px; font-size: 20px; font-weight: bold; }
+  
+  .card {
+    background: #ffffff; padding: 20px; border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column; gap: 15px;
+    width: 100%; max-width: 400px; box-sizing: border-box;
+    margin-bottom: 20px;
+  }
+  
+  input[type="text"] {
+    padding: 10px; border-radius: 4px; border: 1px solid #ccc;
+    background: #fff; color: #333; font-size: 14px; width: 100%; box-sizing: border-box;
+  }
+  
+  .theme-switch { display: flex; gap: 10px; }
+  .theme-btn {
+    flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;
+    background: #f9f9f9; color: #333; font-weight: bold; font-size: 14px;
+    cursor: pointer; transition: 0.2s;
+  }
+  .theme-btn.active {
+    background: #333; color: #fff; border-color: #333;
+  }
+  
+  button.generate-btn {
+    padding: 12px; border: 0; border-radius: 4px;
+    background: #0056b3; color: white; font-weight: bold; font-size: 16px;
+    cursor: pointer;
+  }
+  button.generate-btn:hover { background: #004494; }
+  
+  #canvas-container {
+    background: #fff; padding: 10px; border-radius: 8px;
+    display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  }
+  canvas { display: block; max-width: 100%; height: auto; }
+  
+  .actions { display: flex; gap: 10px; margin-top: 10px; }
+  .actions button {
+    flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #ccc;
+    background: #fff; color: #333; font-weight: bold; cursor: pointer;
+  }
+  .actions button:hover { background: #eee; }
+</style>
+</head>
+<body>
+
+  <h1>Классический QR-код</h1>
+
+  <div class="card">
+    <input type="text" id="urlInput" value="https://ar-flashback-production.up.railway.app/scan/kGVtMmwQJeT4i1Y1OnUbjC2BQws">
+    
+    <div class="theme-switch">
+      <button class="theme-btn active" data-theme="light">Черный на Белом</button>
+      <button class="theme-btn" data-theme="dark">Белый на Черном</button>
+    </div>
+
+    <button class="generate-btn" id="generateBtn">Сгенерировать</button>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="qrCanvas"></canvas>
+    <div class="actions">
+      <button id="downloadPng">Скачать PNG</button>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+  const urlInput = document.getElementById('urlInput');
+  const generateBtn = document.getElementById('generateBtn');
+  const canvasContainer = document.getElementById('canvas-container');
+  const canvas = document.getElementById('qrCanvas');
+  const ctx = canvas.getContext('2d');
+  const themeBtns = document.querySelectorAll('.theme-btn');
+
+  let currentTheme = 'light';
+
+  // Переключение темы
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      themeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTheme = btn.getAttribute('data-theme');
+      if (canvasContainer.style.display === 'block') generateBtn.click();
+    });
+  });
+
+  generateBtn.addEventListener('click', () => {
+    const url = urlInput.value;
+    if (!url) return;
+
+    // Уровень M (оптимально для классики, крупные квадраты)
+    const qr = qrcode(0, 'M'); 
+    qr.addData(url);
+    qr.make();
+    
+    const moduleCount = qr.getModuleCount();
+    
+    // КЛАССИЧЕСКИЕ НАСТРОЙКИ
+    const padding = 4; // Стандартная "тихая зона" (4 модуля) - критически важна для сканирования!
+    const canvasSize = 800; // Фиксированный размер холста (высокое разрешение)
+    const cellSize = canvasSize / (moduleCount + padding * 2);
+    
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    
+    // Цвета (чистый черный и белый без оттенков)
+    const bgColor = currentTheme === 'light' ? '#FFFFFF' : '#000000';
+    const fgColor = currentTheme === 'light' ? '#000000' : '#FFFFFF';
+    
+    // Заливаем фон
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+    // Рисуем строго квадратные модули (без скруглений)
+    ctx.fillStyle = fgColor;
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount; col++) {
+        if (qr.isDark(row, col)) {
+          const x = (col + padding) * cellSize;
+          const y = (row + padding) * cellSize;
+          
+          // Округляем до 2 знаков, чтобы не было микро-щелей между квадратами
+          const w = Math.ceil(cellSize);
+          const h = Math.ceil(cellSize);
+          
+          ctx.fillRect(x, y, w, h);
+        }
+      }
+    }
+
+    canvasContainer.style.display = 'block';
+    canvasContainer.style.backgroundColor = bgColor; // Фон контейнера под цвет темы
+  });
+
+  // Скачивание PNG
+  document.getElementById('downloadPng').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = `qr_classic_${currentTheme}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // Автогенерация при загрузке
+  window.onload = () => generateBtn.click();
+</script>
+</body>
+</html>
