@@ -245,10 +245,21 @@ function toPngOld(size=1024,solid=false){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(lastSvg.replace('<svg ',`<svg width="${size}" height="${size}" `));
  });
 }
+function fb(name,blob){
+ const url=URL.createObjectURL(blob),img=/\.(png|svg)$/.test(name),file=new File([blob],name,{type:blob.type||'application/octet-stream'});
+ const can=!!(navigator.canShare&&navigator.canShare({files:[file]})),bt='style="font:inherit;text-decoration:none;border-radius:9px;padding:10px 14px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer"';
+ let d=$('fd');if(!d){document.body.insertAdjacentHTML('beforeend','<dialog id="fd"></dialog>');d=$('fd')}
+ d.innerHTML='<h2 style="margin:0 0 10px;font-size:18px">Сохранение файла</h2>'
+  +(img?`<div class="box" style="margin-bottom:10px"><img src="${url}" alt="" style="max-width:100%;max-height:50vh"></div><div class="note" style="margin:0 0 10px">Нажмите на картинку правой кнопкой → «Сохранить изображение как…» (на телефоне — долгое нажатие).</div>`:'<div class="note" style="margin:0 0 10px">Автоматическое скачивание в этом окне недоступно. Попробуйте кнопки ниже.</div>')
+  +`<div class="btns"><a ${bt} href="${url}" download="${name}">Скачать</a><a ${bt} href="${url}" target="_blank" rel="noopener">Открыть в новой вкладке</a>${can?`<button id="fsh">Поделиться / сохранить</button>`:''}<button id="fx">Закрыть</button></div>`;
+ $('fx').onclick=()=>d.close();
+ const sh=$('fsh');if(sh)sh.onclick=()=>navigator.share({files:[file]}).catch(()=>{});
+ d.showModal();
+}
 let dl=null;
 async function save(name,blob){
- if(!dl){$('err').textContent='Скачивание недоступно в этом окне — используйте «Копировать SVG».';return}
- try{await dl.save({filename:name,data:blob})}catch(e){if(e&&e.code!=='declined')$('err').textContent='Не удалось сохранить файл.'}
+ if(!dl){fb(name,blob);return}
+ try{await dl.save({filename:name,data:blob})}catch(e){if(e&&e.code==='declined')return;fb(name,blob)}
 }
 $('dsvg').onclick=()=>lastSvg&&save('qr-code.svg',new Blob([lastSvg],{type:'image/svg+xml'}));
 $('dpng').onclick=async()=>{if(!lastSvg)return;try{save('qr-code.png',await toPng(+$('psize').value))}catch(e){$('err').textContent='Ошибка создания PNG'}};
